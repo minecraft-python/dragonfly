@@ -1,7 +1,16 @@
 name: Build and deploy
-on: [push]
-jobs:
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Build'
+        required: true
+        default: 'Build'
+      home:
+        description: 'location'
+        required: false
 
+jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -59,34 +68,31 @@ jobs:
       - name: Build
         run: go build -o dragonfly_exe -v .
 
-      - name: Set SSH info
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
         env:
-          HOST: ${{ secrets.HOST }}
-          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          mkdir -p ~/.ssh/
-          echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: v${{ github.run_number }}
+          draft: false
+          prerelease: false
 
-      - name: Stop server
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
         env:
-          HOST: ${{ secrets.HOST }}
-        run: |
-          ssh -i ~/.ssh/id_rsa $HOST screen -d -R -S dragonfly -X stuff '^C'
-          ssh -i ~/.ssh/id_rsa $HOST rm -f dragonfly_exe
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dragonfly_exe
+          asset_name: dragonfly_exe.exe
+          asset_content_type: application/exe
 
-      - name: Transfer executable
-        env:
-          HOST: ${{ secrets.HOST }}
-          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          scp -i ~/.ssh/id_rsa dragonfly_exe $HOST:/home/dragonfly_exe
-
-      - name: Restart server
-        env:
-          HOST: ${{ secrets.HOST }}
-        run: |
-          ssh -i ~/.ssh/id_rsa $HOST "screen -d -R -S dragonfly -X stuff './dragonfly_exe\n'"
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v2
+        if: success()
+        with:
+          name: dragonfly_exe
+          path: dragonfly_exe
