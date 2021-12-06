@@ -13,7 +13,7 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
 
       - name: Set up Go 1.16
@@ -31,7 +31,7 @@ jobs:
           export PATH=$PATH:$GOPATH/bin
 
       - name: Build
-        run: go build -o dragonfly_exe -v .
+        run: go build -o dragonfly.exe -v .
 
       - name: Vet
         run: go vet ./...
@@ -48,7 +48,7 @@ jobs:
   deploy:
     name: Deploy
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
 
       - name: Set up Go 1.16
@@ -66,7 +66,7 @@ jobs:
           export PATH=$PATH:$GOPATH/bin
 
       - name: Build
-        run: go build -o dragonfly_exe -v .
+        run: go build -o dragonfly.exe -v .
 
       - name: Create Release
         id: create_release
@@ -86,13 +86,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dragonfly_exe
-          asset_name: dragonfly_exe.exe
+          asset_path: dragonfly.exe
+          asset_name: dragonfly.exe
           asset_content_type: application/exe
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v2
         if: success()
         with:
-          name: dragonfly_exe
-          path: dragonfly_exe
+          name: dragonfly
+          path: dragonfly.exe
